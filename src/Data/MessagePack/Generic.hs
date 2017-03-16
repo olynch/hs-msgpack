@@ -36,9 +36,7 @@ instance (GSumPack a, GSumPack b, SumSize a, SumSize b) => GMessagePack (a :+: b
     where
       size = unTagged (sumSize :: Tagged (a :+: b) Word64)
 
-  gFromObject = \case
-    ObjectWord code -> checkSumFromObject0 size (fromIntegral code)
-    o               -> fromObject o >>= uncurry (checkSumFromObject size)
+  gFromObject o = fromObject o >>= uncurry (checkSumFromObject size)
     where
       size = unTagged (sumSize :: Tagged (a :+: b) Word64)
 
@@ -71,12 +69,6 @@ instance GMessagePack a => GProdPack (M1 t c a) where
 
 -- Sum type packing.
 
-checkSumFromObject0 :: (Applicative m, Monad m) => (GSumPack f) => Word64 -> Word64 -> m (f a)
-checkSumFromObject0 size code
-  | code < size = sumFromObject code size ObjectNil
-  | otherwise   = fail "invalid encoding for sum type"
-
-
 checkSumFromObject :: (Applicative m, Monad m) => (GSumPack f) => Word64 -> Word64 -> Object -> m (f a)
 checkSumFromObject size code x
   | code < size = sumFromObject code size x
@@ -102,12 +94,6 @@ instance (GSumPack a, GSumPack b) => GSumPack (a :+: b) where
     where
       sizeL = size `shiftR` 1
       sizeR = size - sizeL
-
-
-instance GSumPack (C1 c U1) where
-  sumToObject code _ _ = toObject code
-  sumFromObject _ _ = gFromObject
-
 
 instance GMessagePack a => GSumPack (C1 c a) where
   sumToObject code _ x = toObject (code, gToObject x)
