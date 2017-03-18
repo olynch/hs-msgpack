@@ -36,11 +36,22 @@ instance (GSumPack a, GSumPack b, SumSize a, SumSize b) => GMessagePack (a :+: b
     where
       size = unTagged (sumSize :: Tagged (a :+: b) Word64)
 
-  gFromObject = \case
-    ObjectWord code -> checkSumFromObject0 size (fromIntegral code)
-    o               -> fromObject o >>= uncurry (checkSumFromObject size)
+  {-gFromObject = \case-}
+  {-  ObjectWord code -> checkSumFromObject0 size (fromIntegral code)-}
+  {-  o               -> fromObject o >>= uncurry (checkSumFromObject size)-}
+  {-  where-}
+  {-    size = unTagged (sumSize :: Tagged (a :+: b) Word64)-}
+  gFromObject o = fromObject o >>= uncurry (checkSumFromObject size)
     where
       size = unTagged (sumSize :: Tagged (a :+: b) Word64)
+
+instance (GMessagePack a, GProdPack a) => GMessagePack (C1 c a) where
+  gToObject (M1 x) = ObjectArray $ prodToObject x
+  gFromObject x = do
+    xs <- case x of
+            ObjectArray xs -> return xs
+            _ -> fail "invalid encoding for product type"
+    M1 <$> prodFromObject xs
 
 instance GMessagePack a => GMessagePack (M1 t c a) where
   gToObject (M1 x) = gToObject x
@@ -57,6 +68,10 @@ class GProdPack f where
   prodToObject :: f a -> [Object]
   prodFromObject :: (Applicative m, Monad m) => [Object] -> m (f a)
 
+instance GProdPack U1 where
+  prodToObject U1 = []
+  prodFromObject [] = return U1
+  prodFromObject _ = fail "invalid encoding for unit type"
 
 instance (GMessagePack a, GProdPack b) => GProdPack (a :*: b) where
   prodToObject (a :*: b) = gToObject a : prodToObject b
@@ -71,10 +86,10 @@ instance GMessagePack a => GProdPack (M1 t c a) where
 
 -- Sum type packing.
 
-checkSumFromObject0 :: (Applicative m, Monad m) => (GSumPack f) => Word64 -> Word64 -> m (f a)
-checkSumFromObject0 size code
-  | code < size = sumFromObject code size ObjectNil
-  | otherwise   = fail "invalid encoding for sum type"
+{-checkSumFromObject0 :: (Applicative m, Monad m) => (GSumPack f) => Word64 -> Word64 -> m (f a)-}
+{-checkSumFromObject0 size code-}
+{-  | code < size = sumFromObject code size ObjectNil-}
+{-  | otherwise   = fail "invalid encoding for sum type"-}
 
 
 checkSumFromObject :: (Applicative m, Monad m) => (GSumPack f) => Word64 -> Word64 -> Object -> m (f a)
@@ -104,12 +119,12 @@ instance (GSumPack a, GSumPack b) => GSumPack (a :+: b) where
       sizeR = size - sizeL
 
 
-instance GSumPack (C1 c U1) where
-  sumToObject code _ _ = toObject code
-  sumFromObject _ _ = gFromObject
+{-instance GSumPack (C1 c U1) where-}
+{-  sumToObject code _ _ = toObject code-}
+{-  sumFromObject _ _ = gFromObject-}
 
 
-instance GMessagePack a => GSumPack (C1 c a) where
+instance (GProdPack a, GMessagePack a) => GSumPack (C1 c a) where
   sumToObject code _ x = toObject (code, gToObject x)
   sumFromObject _ _ = gFromObject
 
