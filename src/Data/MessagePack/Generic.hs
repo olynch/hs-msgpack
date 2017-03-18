@@ -118,7 +118,6 @@ instance (GSumPack a, GSumPack b) => GSumPack (a :+: b) where
       sizeL = size `shiftR` 1
       sizeR = size - sizeL
 
-
 {-instance GSumPack (C1 c U1) where-}
 {-  sumToObject code _ _ = toObject code-}
 {-  sumFromObject _ _ = gFromObject-}
